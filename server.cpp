@@ -22,11 +22,11 @@ int main(int argc, char* argv[]) {
     namespace bop = boost::program_options;
 
     bop::options_description desc("Options");
-    desc.add_options()("help", "produce this message")
-        ("s", bop::value<Bytes>()->required(), "size (K/M/G)")
-        ("ip", bop::value<psl::net::in_addr>()->default_value({}),
-         "listen only from this ip")
-        ("p", bop::value<psl::net::in_port_t>()->default_value(13345),
+    desc.add_options()("help", "produce this message")(
+        "s", bop::value<Bytes>()->required(), "size (K/M/G)")(
+        "ip", bop::value<psl::net::in_addr>()->default_value({}),
+        "listen only from this ip")(
+        "p", bop::value<psl::net::in_port_t>()->default_value(default_port),
         "listen on port");
 
     bop::positional_options_description p;
@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
 
     rdma_cm_id* id;
     LOG_ERR_EXIT(rdma_create_id(nullptr, &id, nullptr, RDMA_PS_TCP), errno,
-            std::system_category());
+                 std::system_category());
 
     psl::net::in_addr ip = vm["ip"].as<psl::net::in_addr>();
     psl::net::in_port_t port = vm["p"].as<psl::net::in_port_t>();
@@ -59,11 +59,11 @@ int main(int argc, char* argv[]) {
     addr.sin_port = htons(port);
 
     LOG_ERR_EXIT(rdma_bind_addr(id, reinterpret_cast<sockaddr*>(&addr)), errno,
-            std::system_category());
+                 std::system_category());
 
     void* data;
     LOG_ERR_EXIT(posix_memalign(&data, alloc_alignment, size.value), errno,
-            std::system_category());
+                 std::system_category());
     std::memset(data, 0, size.value);
 
     std::cout << "Server listening on " << ip << ":" << port;
@@ -73,14 +73,14 @@ int main(int argc, char* argv[]) {
     std::cout << '\n';
 
     LOG_ERR_EXIT(rdma_listen(id, connection_backlog), errno,
-            std::system_category());
+                 std::system_category());
 
     size_t nclients = 0;
     std::map<ibv_context*, DeviceContext> contexts;
     while (true) {
         rdma_cm_id* child_id;
         LOG_ERR_EXIT(rdma_get_request(id, &child_id), errno,
-                std::system_category());
+                     std::system_category());
 
         sockaddr_in* child_addr =
             reinterpret_cast<sockaddr_in*>(rdma_get_peer_addr(child_id));
@@ -88,8 +88,8 @@ int main(int argc, char* argv[]) {
             reinterpret_cast<sockaddr_in*>(rdma_get_local_addr(child_id));
         std::cout << "#" << nclients << " " << listen_addr->sin_addr << ":"
                   << ntohs(listen_addr->sin_port) << " <- "
-                  << psl::terminal::graphic_format::BOLD
-                  << child_addr->sin_addr << ":" << ntohs(child_addr->sin_port)
+                  << psl::terminal::graphic_format::BOLD << child_addr->sin_addr
+                  << ":" << ntohs(child_addr->sin_port)
                   << psl::terminal::graphic_format::RESET << '\n';
         nclients++;
 
@@ -106,13 +106,14 @@ int main(int argc, char* argv[]) {
 
             ibv_device_attr& dev_attr = context->second.dev_attr;
             LOG_ERR_EXIT(ibv_query_device(child_id->verbs, &dev_attr), errno,
-                    std::system_category());
+                         std::system_category());
         }
 
         ibv_cq* cq;
-        LOG_ERR_EXIT(!(cq = ibv_create_cq(child_id->verbs,
-                        max_send_wr + max_recv_wr, nullptr, nullptr, 0)),
-                     errno, std::system_category());
+        LOG_ERR_EXIT(
+            !(cq = ibv_create_cq(child_id->verbs, max_send_wr + max_recv_wr,
+                                 nullptr, nullptr, 0)),
+            errno, std::system_category());
 
         ibv_qp_init_attr qp_init_attr = {};
         qp_init_attr.qp_type = IBV_QPT_RC;
@@ -134,10 +135,11 @@ int main(int argc, char* argv[]) {
         rdma_conn_param conn_param = {};
         conn_param.private_data = reinterpret_cast<void*>(&conn_data);
         conn_param.private_data_len = sizeof(conn_data);
-        conn_param.responder_resources = context->second.dev_attr.max_qp_rd_atom;
+        conn_param.responder_resources =
+            context->second.dev_attr.max_qp_rd_atom;
         conn_param.initiator_depth = context->second.dev_attr.max_qp_rd_atom;
         LOG_ERR_EXIT(rdma_accept(child_id, &conn_param), errno,
-                std::system_category());
+                     std::system_category());
     }
 
     return 0;
