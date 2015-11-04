@@ -58,10 +58,13 @@ inline std::istream& operator>>(std::istream& in, Bytes& size) {
         order++;
     case 'K':
         order++;
-        size.value *= static_cast<size_t>(1024) * order;
         break;
     default:
+        in.setstate(std::ios_base::failbit);
         break;
+    }
+    while (order-- > 0) {
+        size.value *= static_cast<size_t>(1024);
     }
     return in;
 }
