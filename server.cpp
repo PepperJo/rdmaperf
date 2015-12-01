@@ -4,6 +4,8 @@
 
 #include <boost/program_options.hpp>
 
+#include <sys/mman.h>
+
 #include <rdma/rdma_cma.h>
 
 #include <psl/log.h>
@@ -22,12 +24,16 @@ int main(int argc, char* argv[]) {
     namespace bop = boost::program_options;
 
     bop::options_description desc("Options");
-    desc.add_options()("help", "produce this message")(
-        "s", bop::value<Bytes>()->required(), "size (K/M/G)")(
-        "ip", bop::value<psl::net::in_addr>()->default_value({}),
-        "listen only from this ip")(
-        "p", bop::value<psl::net::in_port_t>()->default_value(default_port),
-        "listen on port");
+    // clang-format off
+    desc.add_options()
+        ("help", "produce this message")
+        ("s", bop::value<Bytes>()->required(), "size (K/M/G)")
+        ("ip", bop::value<psl::net::in_addr>()->default_value({}),
+        "listen only from this ip")
+        ("p", bop::value<psl::net::in_port_t>()->default_value(default_port),
+        "listen on port")
+        ("h", "enbale hugepages (madvise)");
+    // clang-format on
 
     bop::positional_options_description p;
     p.add("ip", 1);
@@ -65,6 +71,11 @@ int main(int argc, char* argv[]) {
     LOG_ERR_EXIT(posix_memalign(&data, alloc_alignment, size.value), errno,
                  std::system_category());
     std::memset(data, 0, size.value);
+
+    if (vm.count("h")) {
+        LOG_ERR_EXIT(madvise(data, size.value, MADV_HUGEPAGE), errno,
+                std::system_category());
+    }
 
     std::cout << "Server listening on " << ip << ":" << port;
     if (id->verbs) {

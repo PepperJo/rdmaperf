@@ -8,6 +8,8 @@
 #include <chrono>
 #include <cstring>
 
+#include <sys/mman.h>
+
 #include <rdma/rdma_cma.h>
 
 #include <psl/net.h>
@@ -64,23 +66,27 @@ int main(int argc, char* argv[]) {
     namespace bop = boost::program_options;
 
     bop::options_description desc("Options");
-    desc.add_options()("help", "produce this message")(
-        "l", bop::value<ssize_t>()->default_value(1),
-        "locations to access (random order) or <=0 index to location")(
-        "tx", bop::value<size_t>()->default_value(1),
-        "tx depth")("cq_mod", bop::value<size_t>()->default_value(1),
-                    "signaled wr every nth (<tx depth)")(
-        "op", bop::value<ibv_wr_opcode>()->default_value(IBV_WR_RDMA_WRITE),
-        "opcode: read/write/fadd/cas/send")(
-        "t", bop::value<Type>()->default_value(Type::BW), "lat/bw")(
-        "ip", bop::value<psl::net::in_addr>()->required(), "server ip")(
-        "p", bop::value<psl::net::in_port_t>()->default_value(default_port),
-        "port")("d", bop::value<size_t>()->default_value(10),
-                "duration (seconds)")("i",
-                                      bop::value<size_t>()->default_value(0),
-                                      "inline data size (bytes)")(
-        "s", bop::value<Bytes>()->default_value({8}),
-        "size")("a", bop::value<Bytes>()->default_value({64}), "alignment");
+    // clang-format off
+    desc.add_options()
+        ("help", "produce this message")
+        ("l", bop::value<ssize_t>()->default_value(1),
+        "locations to access (random order) or <=0 index to location")
+        ("tx", bop::value<size_t>()->default_value(1), "tx depth")
+        ("cq_mod", bop::value<size_t>()->default_value(1),
+         "signaled wr every nth (<tx depth)")
+        ("op", bop::value<ibv_wr_opcode>()->default_value(IBV_WR_RDMA_WRITE),
+        "opcode: read/write/fadd/cas/send")
+        ("t", bop::value<Type>()->default_value(Type::BW), "lat/bw")
+        ("ip", bop::value<psl::net::in_addr>()->required(), "server ip")
+        ("p", bop::value<psl::net::in_port_t>()->default_value(default_port),
+        "port")
+        ("d", bop::value<size_t>()->default_value(10), "duration (seconds)")
+        ("i", bop::value<size_t>()->default_value(0),
+         "inline data size (bytes)")
+        ("s", bop::value<Bytes>()->default_value({8}), "size")
+        ("a", bop::value<Bytes>()->default_value({64}), "alignment")
+        ("h", "enable hugepages (madvise)");
+    // clang-format on
 
     bop::positional_options_description p;
     p.add("ip", 1);
@@ -189,6 +195,11 @@ int main(int argc, char* argv[]) {
     LOG_ERR_EXIT(posix_memalign(&data, alloc_alignment, max_local_size), errno,
                  std::system_category());
     std::memset(data, 0, max_local_size);
+
+    if (vm.count("h")) {
+        LOG_ERR_EXIT(madvise(data, max_local_size, MADV_HUGEPAGE), errno,
+                std::system_category());
+    }
 
     ibv_mr* mr;
     LOG_ERR_EXIT(!(mr = ibv_reg_mr(
