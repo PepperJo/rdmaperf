@@ -350,7 +350,7 @@ int main(int argc, char* argv[]) {
                 goto end;
             }
         } while (polled == 0);
-        for (size_t i = 0; i < polled; i++) {
+        for (int i = 0; i < polled; i++) {
             LOG_ERR_EXIT(wc[i].status != IBV_WC_SUCCESS, wc[i].status,
                          ibv_wc_error_category());
             in_flight -= cq_mod;

@@ -59,6 +59,8 @@ inline std::istream& operator>>(std::istream& in, Bytes& size) {
     case 'K':
         order++;
         break;
+    case '\0':
+        break;
     default:
         in.setstate(std::ios_base::failbit);
         break;

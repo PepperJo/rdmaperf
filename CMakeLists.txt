@@ -12,17 +12,21 @@ add_compile_options(-Wall -Werror)
 find_package(Boost COMPONENTS program_options system chrono REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
 
+find_package(Threads)
+
 include_directories(.)
 
 set(RDMA_LIBS rdmacm ibverbs)
 
 add_executable(rdmaperf_server server.cpp)
+target_link_libraries(rdmaperf_server ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(rdmaperf_server ${RDMA_LIBS})
 target_link_libraries(rdmaperf_server psl)
 target_link_libraries(rdmaperf_server ${Boost_LIBRARIES})
 
 project(rdmaperf_client)
 add_executable(rdmaperf_client client.cpp)
+target_link_libraries(rdmaperf_client ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(rdmaperf_client ${RDMA_LIBS})
 target_link_libraries(rdmaperf_client psl)
 target_link_libraries(rdmaperf_client ${Boost_LIBRARIES})
