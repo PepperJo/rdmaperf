@@ -17,3 +17,6 @@ The send queue depth is 2 and only every 2nd send operation is signaled, i.e. ge
 it to be a latency experiment so every operation's completion time is measured individually (resp. cp_mod many) and
 a sample set of times is stored to compute median or mean. In throughput mode operations per seconds are reported.
 Stats are reported every second.
+
+Multiple clients can perform operations to the same server. -l can be used e.g. to provide individual locations for each
+client with 0, -1, -2 where 0 is the 1st location -1 the 2nd and so on. Locations are computed with `align(size, alignment) * location * -1`. If a positive location is specified rdmaperf will randomly access locations from the 1st to the specified location.
